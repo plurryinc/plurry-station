@@ -4,7 +4,7 @@ android {
     compileSdkVersion 22
     buildToolsVersion "22.0.1"
     defaultConfig {
-        applicationId "com.ericsson.research.owr.examples.nativecall"
+        applicationId "net.plurry.station"
         minSdkVersion 19
         targetSdkVersion 22
         versionCode 1

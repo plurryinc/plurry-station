@@ -23,7 +23,7 @@
  * OF SUCH DAMAGE.
  */
 
-package com.ericsson.research.owr.examples.nativecall;
+package net.plurry.station;
 
 import android.os.Handler;
 import android.os.Looper;

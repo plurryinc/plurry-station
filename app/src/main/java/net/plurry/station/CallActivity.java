@@ -23,7 +23,7 @@
  * OF SUCH DAMAGE.
  */
 
-package com.ericsson.research.owr.examples.nativecall;
+package net.plurry.station;
 
 import android.app.Activity;
 import android.content.res.Configuration;
@@ -60,10 +60,7 @@ import com.ericsson.research.owr.sdk.VideoView;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-
-public class NativeCallExampleActivity extends Activity implements
+public class CallActivity extends Activity implements
         SignalingChannel.JoinListener,
         SignalingChannel.DisconnectListener,
         SignalingChannel.SessionFullListener,
