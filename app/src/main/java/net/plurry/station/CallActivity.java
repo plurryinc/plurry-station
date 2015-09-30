@@ -112,6 +112,8 @@ public class CallActivity extends Activity implements
 
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         mRtcConfig = RtcConfigs.defaultConfig(Config.STUN_SERVER);
+
+        mJoinButton.performClick();
     }
 
     @Override
@@ -123,18 +125,20 @@ public class CallActivity extends Activity implements
 
     private void updateVideoView(boolean running) {
         if (mStreamSet != null) {
-            TextureView selfView = (TextureView) findViewById(R.id.self_view);
+            //TextureView selfView = (TextureView) findViewById(R.id.self_view);
             TextureView remoteView = (TextureView) findViewById(R.id.remote_view);
-            selfView.setVisibility(running ? View.VISIBLE : View.INVISIBLE);
+            //selfView.setVisibility(running ? View.VISIBLE : View.INVISIBLE);
             remoteView.setVisibility(running ? View.VISIBLE : View.INVISIBLE);
             if (running) {
-                Log.d(TAG, "setting self-view: " + selfView);
-                mSelfView.setView(selfView);
+//                Log.d(TAG, "setting self-view: " + selfView);
+                //mSelfView.setView(selfView);
                 mRemoteView.setView(remoteView);
+                mRemoteView.setRotation((mWindowManager.getDefaultDisplay().getRotation() + 1) % 4);
+//                Log.d(TAG, "orientation : " + mWindowManager.getDefaultDisplay().getRotation());
                 //mStreamSet.setDeviceOrientation(mWindowManager.getDefaultDisplay().getRotation());
             } else {
                 Log.d(TAG, "stopping self-view");
-                mSelfView.stop();
+                //mSelfView.stop();
                 mRemoteView.stop();
             }
         }
@@ -146,46 +150,47 @@ public class CallActivity extends Activity implements
         mCallButton = (Button) findViewById(R.id.call);
         mJoinButton = (Button) findViewById(R.id.join);
         mSessionInput = (EditText) findViewById(R.id.session_id);
+        mSessionInput.setText("plurry");
         mAudioCheckBox = (CheckBox) findViewById(R.id.audio);
         mVideoCheckBox = (CheckBox) findViewById(R.id.video);
 
         mJoinButton.setEnabled(true);
 
-        mHeader = findViewById(R.id.header);
-        mHeader.setCameraDistance(getResources().getDisplayMetrics().widthPixels * 5);
-        mHeader.setPivotX(getResources().getDisplayMetrics().widthPixels / 2);
-        mHeader.setPivotY(0);
-        mSettingsHeader = findViewById(R.id.settings_header);
-        mSettingsHeader.setCameraDistance(getResources().getDisplayMetrics().widthPixels * 5);
-        mSettingsHeader.setPivotX(getResources().getDisplayMetrics().widthPixels / 2);
-        mSettingsHeader.setPivotY(0);
+        //mHeader = findViewById(R.id.header);
+        //mHeader.setCameraDistance(getResources().getDisplayMetrics().widthPixels * 5);
+        //mHeader.setPivotX(getResources().getDisplayMetrics().widthPixels / 2);
+        //mHeader.setPivotY(0);
+        //mSettingsHeader = findViewById(R.id.settings_header);
+        //mSettingsHeader.setCameraDistance(getResources().getDisplayMetrics().widthPixels * 5);
+        //mSettingsHeader.setPivotX(getResources().getDisplayMetrics().widthPixels / 2);
+        //mSettingsHeader.setPivotY(0);
 
-        mUrlSetting = (EditText) findViewById(R.id.url_setting);
-        mUrlSetting.setText(getUrl());
-        mUrlSetting.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(final TextView view, final int actionId, final KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    hideSettings();
-                    String url = view.getText().toString();
-                    saveUrl(url);
-                    return true;
-                }
-                return false;
-            }
-        });
+//        mUrlSetting = (EditText) findViewById(R.id.url_setting);
+//        mUrlSetting.setText(getUrl());
+//        mUrlSetting.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+//            @Override
+//            public boolean onEditorAction(final TextView view, final int actionId, final KeyEvent event) {
+//                if (actionId == EditorInfo.IME_ACTION_DONE) {
+//                    hideSettings();
+//                    String url = view.getText().toString();
+//                    saveUrl(url);
+//                    return true;
+//                }
+//                return false;
+//            }
+//        });
     }
 
-    public void onSelfViewClicked(final View view) {
-        Log.d(TAG, "onSelfViewClicked");
-        if (mStreamSet != null) {
-            if (mSelfView != null) {
-                mSelfView.setRotation((mSelfView.getRotation() + 1) % 4);
-            }
-        }
+//    public void onSelfViewClicked(final View view) {
+//        Log.d(TAG, "onSelfViewClicked");
+//        if (mStreamSet != null) {
+//            if (mSelfView != null) {
+//                mSelfView.setRotation((mSelfView.getRotation() + 1) % 4);
+//            }
+//        }
 //        mStreamSet.toggleCamera();
-    }
-
+//    }
+//
     public void onJoinClicked(final View view) {
         Log.d(TAG, "onJoinClicked");
 
