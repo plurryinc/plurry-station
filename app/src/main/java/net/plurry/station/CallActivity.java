@@ -131,7 +131,7 @@ public class CallActivity extends Activity implements
                 Log.d(TAG, "setting self-view: " + selfView);
                 mSelfView.setView(selfView);
                 mRemoteView.setView(remoteView);
-    //            mStreamSet.setDeviceOrientation(mWindowManager.getDefaultDisplay().getRotation());
+                mStreamSet.setDeviceOrientation(mWindowManager.getDefaultDisplay().getRotation());
             } else {
                 Log.d(TAG, "stopping self-view");
                 mSelfView.stop();
