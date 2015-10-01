@@ -26,7 +26,10 @@
 package net.plurry.station;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -40,6 +43,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -59,6 +63,15 @@ import com.ericsson.research.owr.sdk.VideoView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 public class CallActivity extends Activity implements
         SignalingChannel.JoinListener,
@@ -83,14 +96,18 @@ public class CallActivity extends Activity implements
         Owr.runInBackground();
     }
 
+    private LinearLayout mVideoLayout;
+    private LinearLayout mCodeLayout;
+
     private Button mJoinButton;
     private Button mCallButton;
     private EditText mSessionInput;
     private CheckBox mAudioCheckBox;
     private CheckBox mVideoCheckBox;
-    private EditText mUrlSetting;
-    private View mHeader;
-    private View mSettingsHeader;
+    private TextView mSmartPhoneCode;
+    //private EditText mUrlSetting;
+    //private View mHeader;
+    //private View mSettingsHeader;
 
     private SignalingChannel mSignalingChannel;
     private InputMethodManager mInputMethodManager;
@@ -98,9 +115,12 @@ public class CallActivity extends Activity implements
     private SignalingChannel.PeerChannel mPeerChannel;
     private RtcSession mRtcSession;
     private SimpleStreamSet mStreamSet;
-    private VideoView mSelfView;
+    //private VideoView mSelfView;
     private VideoView mRemoteView;
     private RtcConfig mRtcConfig;
+
+    private SharedPreferences pref;
+    private String prefName = "session";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,7 +153,7 @@ public class CallActivity extends Activity implements
 //                Log.d(TAG, "setting self-view: " + selfView);
                 //mSelfView.setView(selfView);
                 mRemoteView.setView(remoteView);
-                mRemoteView.setRotation((mWindowManager.getDefaultDisplay().getRotation() + 1) % 4);
+                //mRemoteView.setRotation((mWindowManager.getDefaultDisplay().getRotation() + 1) % 4);
 //                Log.d(TAG, "orientation : " + mWindowManager.getDefaultDisplay().getRotation());
                 //mStreamSet.setDeviceOrientation(mWindowManager.getDefaultDisplay().getRotation());
             } else {
@@ -146,15 +166,29 @@ public class CallActivity extends Activity implements
 
     public void initUi() {
         setContentView(R.layout.activity_openwebrtc);
+        String session_id = getPreferences("session_id");
+        String code = getPreferences("code");
 
+        if(session_id.isEmpty() || code.isEmpty()) {
+            new CodeTask().execute(
+                    "http://plurry.cycorld.com:3000/owr/generate",
+                    ""
+            );
+        }
+        mSmartPhoneCode = (TextView) findViewById(R.id.SmartphoneCode);
         mCallButton = (Button) findViewById(R.id.call);
         mJoinButton = (Button) findViewById(R.id.join);
         mSessionInput = (EditText) findViewById(R.id.session_id);
-        mSessionInput.setText("plurry");
         mAudioCheckBox = (CheckBox) findViewById(R.id.audio);
         mVideoCheckBox = (CheckBox) findViewById(R.id.video);
 
+        mVideoLayout = (LinearLayout) findViewById(R.id.VideoLayout);
+        mCodeLayout = (LinearLayout) findViewById(R.id.CodeLayout);
+
         mJoinButton.setEnabled(true);
+
+        mSessionInput.setText(session_id);
+        mSmartPhoneCode.setText(code);
 
         //mHeader = findViewById(R.id.header);
         //mHeader.setCameraDistance(getResources().getDisplayMetrics().widthPixels * 5);
@@ -215,15 +249,18 @@ public class CallActivity extends Activity implements
         boolean wantAudio = mAudioCheckBox.isChecked();
         boolean wantVideo = mVideoCheckBox.isChecked();
         mStreamSet = SimpleStreamSet.defaultConfig(wantAudio, wantVideo);
-        mSelfView = CameraSource.getInstance().createVideoView();
+        //mSelfView = CameraSource.getInstance().createVideoView();
         mRemoteView = mStreamSet.createRemoteView();
+        mRemoteView.setRotation(0);
         updateVideoView(true);
     }
 
     @Override
     public void onPeerJoin(final SignalingChannel.PeerChannel peerChannel) {
         Log.v(TAG, "onPeerJoin => " + peerChannel.getPeerId());
+
         mCallButton.setEnabled(true);
+
         mPeerChannel = peerChannel;
         mPeerChannel.setDisconnectListener(this);
         mPeerChannel.setMessageListener(this);
@@ -244,10 +281,16 @@ public class CallActivity extends Activity implements
         mCallButton.setEnabled(false);
         mAudioCheckBox.setEnabled(true);
         mVideoCheckBox.setEnabled(true);
-    }
 
+        mCodeLayout.setVisibility(View.VISIBLE);
+        mVideoLayout.setVisibility(View.INVISIBLE);
+    }
     @Override
     public synchronized void onMessage(final JSONObject json) {
+        if(mCodeLayout.getVisibility() == View.VISIBLE) {
+            mCodeLayout.setVisibility(View.INVISIBLE);
+            mVideoLayout.setVisibility(View.VISIBLE);
+        }
         if (json.has("candidate")) {
             JSONObject candidate = json.optJSONObject("candidate");
             Log.v(TAG, "candidate: " + candidate);
@@ -347,7 +390,7 @@ public class CallActivity extends Activity implements
         Toast.makeText(this, "Session is full", Toast.LENGTH_LONG).show();
         mJoinButton.setEnabled(true);
     }
-
+    /*
     public void onSettingsClicked(final View view) {
         showSettings();
     }
@@ -395,10 +438,116 @@ public class CallActivity extends Activity implements
         PreferenceManager.getDefaultSharedPreferences(this).edit()
                 .putString(PREFERENCE_KEY_SERVER_URL, url).commit();
     }
-
+    */
     private String getUrl() {
         return PreferenceManager.getDefaultSharedPreferences(this)
                 .getString(PREFERENCE_KEY_SERVER_URL, Config.DEFAULT_SERVER_ADDRESS);
+    }
+
+    public class CodeTask extends AsyncTask<String, Void, String> {
+
+        ProgressDialog dataPending = new ProgressDialog(CallActivity.this);
+
+        public String jsonConverter(String str) {
+            str = str.replace("\\", "");
+            str = str.replace("\"{", "{");
+            str = str.replace("}\",", "},");
+            str = str.replace("}\"", "}");
+
+            return str;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            dataPending.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            dataPending.setMessage("데이터를 불러오는 중 입니다...");
+
+            dataPending.show();
+            super.onPreExecute();
+        }
+
+        @Override
+        protected String doInBackground(String... params) {
+            HttpURLConnection conn;
+
+            URL url = null;
+            int responseCode = 0;
+            String urlParameters = null;
+            String response = null;
+            DataOutputStream os = null;
+            InputStream is = null;
+            BufferedReader br = null;
+            try {
+                url = new URL(params[0]);
+                urlParameters = params[1];
+                Log.d("parameters", urlParameters);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setReadTimeout(5000);
+                conn.setConnectTimeout(5000);
+                conn.setRequestProperty("charset", "euc-kr");
+                conn.setDoInput(true);
+                conn.setDoOutput(true);
+
+                os = new DataOutputStream(conn.getOutputStream());
+                os.writeBytes(urlParameters);
+                os.flush();
+
+                responseCode = conn.getResponseCode();
+                Log.d("responseCode", responseCode + "");
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+
+                    is = conn.getInputStream();
+                    br = new BufferedReader(new InputStreamReader(is));
+
+                    response = new String(br.readLine());
+                    response = jsonConverter(response);
+
+                    JSONObject responseJSON = new JSONObject(response);
+
+                    Log.i("response", "DATA response = " + responseJSON);
+                    Log.i("response", "DATA response = " + responseJSON.get("result"));
+                }
+            } catch (MalformedURLException e) {
+                Log.d("MalformedURLException", "ERROR " + e.getMessage());
+            } catch (IOException e) {
+                Log.d("IOException", "ERROR " + e.getMessage());
+            } catch (JSONException e) {
+                Log.d("JSONException", "ERROR " + e.getMessage());
+            }
+
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                return response;
+            } else {
+                return "fail";
+            }
+        }
+        protected void onPostExecute(String data) {
+            dataPending.dismiss();
+            // result is what you got from your connection
+            if(!data.equals("fail")) {
+                JSONObject resultJSON = null;
+                String result = null;
+                String what = null;
+                try {
+                    resultJSON = new JSONObject(data);
+                    result = resultJSON.getString("result");
+                    what = resultJSON.getString("what");
+                    if(what.equals("generate code")) {
+                        JSONObject product = (JSONObject) resultJSON.get("data");
+                        String code = product.getString("code");
+                        String session_id = product.getString("owr_session_id");
+                        savePreferences("code", code);
+                        savePreferences("session_id", session_id);
+                        finish();
+                        startActivity(getIntent());
+                    }
+                } catch (JSONException e) {
+                    Log.d("JSONException", "ERROR " + e.getMessage());
+                }
+            }
+        }
     }
 
     /**
@@ -408,5 +557,36 @@ public class CallActivity extends Activity implements
     protected void onStop() {
         finish();
         System.exit(0);
+    }
+
+    //값 불러오기
+    public String getPreferences(String key) {
+        pref = getSharedPreferences(prefName, MODE_PRIVATE);
+        String data = pref.getString(key, "");
+        return data;
+    }
+
+    // 값 저장하기
+    public void savePreferences(String key, String value) {
+        pref = getSharedPreferences(prefName, MODE_PRIVATE);
+        SharedPreferences.Editor editor = pref.edit();
+        editor.putString(key, value);
+        editor.commit();
+    }
+
+    // 값(Key Data) 삭제하기
+    public void removePreferences(String key) {
+        pref = getSharedPreferences(prefName, MODE_PRIVATE);
+        SharedPreferences.Editor editor = pref.edit();
+        editor.remove(key);
+        editor.commit();
+    }
+
+    // 값(ALL Data) 삭제하기
+    public void removeAllPreferences() {
+        pref = getSharedPreferences(prefName, MODE_PRIVATE);
+        SharedPreferences.Editor editor = pref.edit();
+        editor.clear();
+        editor.commit();
     }
 }
